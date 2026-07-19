@@ -56,17 +56,28 @@ app.use(mongoSanitize());
 // Dynamic CORS Whitelist restriction for production deployment
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://your-app.vercel.app', // placeholder for static UI host
+  process.env.FRONTEND_URL_ALT, // optional secondary frontend URL
 ].filter(Boolean); // Filter any empty/missing values
 
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps, postman, curl, or server-to-server)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    if (!origin) {
+      return callback(null, true);
     }
+    // Allow exact whitelisted origins
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // Allow all Vercel preview deployment URLs (*.vercel.app)
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    // Allow localhost in development
+    if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 };
