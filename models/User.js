@@ -70,16 +70,12 @@ export const userSchema = new mongoose.Schema(
 );
 
 // Pre-save middleware to hash passwords automatically before insertion/modification
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+// Note: Mongoose 9+ async pre-hooks do not receive `next` — use return/throw instead
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Instance method to compare plain-text passwords against bcrypt hashes

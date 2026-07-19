@@ -5,7 +5,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
-import mongoSanitize from 'express-mongo-sanitize';
+// express-mongo-sanitize removed: incompatible with Express 5 (req.query is read-only)
+// Using a custom inline sanitizer instead
 
 // Database connection logic
 import connectDB from './config/database.js';
@@ -50,8 +51,25 @@ const app = express();
 // Helmet middleware adds standard secure HTTP headers for security hardening (XSS, clickjacking prevention)
 app.use(helmet());
 
-// MongoDB Query Injection Protection: sanitizes request body, query parameter tags, and params
-app.use(mongoSanitize());
+// MongoDB Query Injection Protection: custom sanitizer compatible with Express 5
+// express-mongo-sanitize v2.x tries to overwrite req.query which is read-only in Express 5
+const sanitizeValue = (val) => {
+  if (val && typeof val === 'object') {
+    for (const key of Object.keys(val)) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete val[key];
+      } else {
+        sanitizeValue(val[key]);
+      }
+    }
+  }
+  return val;
+};
+app.use((req, _res, next) => {
+  if (req.body) sanitizeValue(req.body);
+  if (req.params) sanitizeValue(req.params);
+  next();
+});
 
 // Dynamic CORS Whitelist restriction for production deployment
 const allowedOrigins = [
